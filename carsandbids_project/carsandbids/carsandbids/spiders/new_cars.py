@@ -13,7 +13,7 @@ class CarsSpider(scrapy.Spider):
     data = {}
     not_required = ['seller','bodystyle','sellertype','drivetrain']
     cookies = ''
-    name = 'newcarrrs'
+    name = 'newcars'
     ids = {}
     counter = 0
     allowed_domains = ['carsandbids.com','127.0.0.1']
