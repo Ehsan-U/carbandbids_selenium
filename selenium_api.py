@@ -12,7 +12,6 @@ from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.common.by import By
 from rich.console import Console
 
-from playwright_api import past_cars
 con = Console()
 
 # proxy setup
