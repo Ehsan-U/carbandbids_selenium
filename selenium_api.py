@@ -11,6 +11,8 @@ from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.common.by import By
 from rich.console import Console
+
+from playwright_api import past_cars
 con = Console()
 
 # proxy setup
@@ -25,16 +27,28 @@ options = {
     }
 }
 
-def new_interceptor(request):
+def interceptor(request):
     api = "/v2/autos/auctions?limit"
     if api in request.url:
         request.url = request.url.replace("limit=12",'limit=100')
-
-def past_interceptor(request):
-    api = "/v2/autos/auctions?limit"
-    if api in request.url:
-        request.url = request.url.replace("offset=50",'offset=0')
         
+# handling new listing
+def new_cars(url):
+    driver = webdriver.Chrome(executable_path="/home/lubuntu/cars_project/chromedriver",options=ch_options,seleniumwire_options=options)
+    driver.request_interceptor = interceptor
+    driver.get(url)
+    try:
+        element = WebDriverWait(driver,10).until(EC.visibility_of_element_located((By.CLASS_NAME,"paginator")))
+    except:
+        pass
+    api = "/v2/autos/auctions?limit"
+    cookies = {}
+    for req in driver.requests:
+        if api in req.url:
+            body = req.response.body
+            resp = decode(body, req.response.headers.get('Content-Encoding', 'identity'))
+            resp = json.loads(resp)
+            return {'resp':resp}
 
 # handling individual car page
 def get_page(url):
@@ -51,32 +65,11 @@ def get_page(url):
                 body = req.response.body
                 resp = decode(body, req.response.headers.get('Content-Encoding', 'identity'))
                 resp = json.loads(resp)
-                return jsonify(resp)
-
-# handling new listing
-def get_new_api(url):
-    driver = webdriver.Chrome(executable_path="/home/lubuntu/cars_project/chromedriver",options=ch_options,seleniumwire_options=options)
-    driver.request_interceptor = new_interceptor
-    driver.get(url)
-    try:
-        element = WebDriverWait(driver,10).until(EC.visibility_of_element_located((By.CLASS_NAME,"paginator")))
-    except:
-        pass
-    api = "/v2/autos/auctions?limit"
-    cookies = {}
-    for req in driver.requests:
-        if api in req.url:
-            cookies_list = driver.get_cookies()
-            for cookie_dict in cookies_list:
-                cookies[cookie_dict.get("name")] = cookie_dict.get("value")
-            api_url = req.url
-            return {"cookies":cookies,'newapi':api_url}
+                return jsonify([resp])
 
 # handling past listing
-def get_past_api(url):
-    url = "https://carsandbids.com/past-auctions/?page=2"
+def past_cars(url):
     driver = webdriver.Chrome(executable_path="/home/lubuntu/cars_project/chromedriver",options=ch_options,seleniumwire_options=options)
-    driver.request_interceptor = past_interceptor
     driver.get(url)
     try:
         element = WebDriverWait(driver,10).until(EC.visibility_of_element_located((By.CLASS_NAME,"paginator")))
@@ -86,11 +79,11 @@ def get_past_api(url):
     cookies = {}
     for req in driver.requests:
         if api in req.url:
-            cookies_list = driver.get_cookies()
-            for cookie_dict in cookies_list:
-                cookies[cookie_dict.get("name")] = cookie_dict.get("value")
+            body = req.response.body
+            resp = decode(body, req.response.headers.get('Content-Encoding', 'identity'))
+            resp = json.loads(resp)
             api_url = req.url
-            return {"cookies":cookies,'pastapi':api_url}
+            return {"resp":resp,'pastapi':api_url}
 
 """Selenium API ENDPOINTS"""
 app = Flask(__name__)
@@ -98,55 +91,68 @@ app = Flask(__name__)
 @app.route('/new',methods=["POST","GET"])
 def new():
     url = str(request.args.get("url"))
-    while True:
-        try:
-            result = get_new_api(url)
-            if result == None:
-                con.print(f"[bold][+]Connection Issue! Trying Again..")
-                continue
-        except Exception:
-            con.print(f"[bold][+]Connection Issue! Trying Again..")
-            continue
-        else:
-            break
-    return result
+    result = new_cars(url)
+    if result:
+        return result
+    else:
+        con.print('[+]Connection Issue! Trying..')
+        return new()
 
 # handling individual car page
 @app.route('/page',methods=["POST","GET"])
 def page():
     url = str(request.args.get("url"))
-    while True:
-        try:
-            result = get_page(url)
-            if result == None:
-                con.print(f"[bold][+]Connection Issue! Trying Again..")
-                continue
-        except Exception:
-            con.print(f"[bold][+]Connection Issue! Trying Again..")
-            continue
-        else:
-            break
-    return result
+    result = get_page(url)
+    if result:
+        return result
+    else:
+        con.print('[+]Connection Issue! Trying..')
+        return page()
 
 # handling past listing
 @app.route('/past',methods=["POST","GET"])
 def past():
     url = str(request.args.get("url"))
-    while True:
-        try:
-            result = get_past_api(url)
-            if result == None:
-                con.print(f"[bold][+]Connection Issue! Trying Again..")
-                continue
-        except TypeError:
-            con.print(f"[bold][+]Connection Issue! Trying Again..")
-            continue
-        else:
-            break
-    return result
-
+    result = past_cars(url)
+    if result:
+        return result
+    else:
+        con.print('[+]Connection Issue! Trying..')
+        return past()
 
 
 if __name__=="__main__":
     app.run(debug=True,port=8081)
 # test()
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

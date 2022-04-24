@@ -13,7 +13,7 @@ class CarsSpider(scrapy.Spider):
     data = {}
     not_required = ['seller','bodystyle','sellertype','drivetrain']
     cookies = ''
-    name = 'newcarrrs'
+    name = 'newcars'
     ids = {}
     counter = 0
     allowed_domains = ['carsandbids.com','127.0.0.1']
@@ -21,22 +21,11 @@ class CarsSpider(scrapy.Spider):
     def start_requests(self):
         # request to selenium API endpoint
         url = "http://127.0.0.1:8081/new?url=https://carsandbids.com/"
-        yield scrapy.Request(url,callback=self.temp_parse)
+        yield scrapy.Request(url,callback=self.parse)
 
-    # parsing response from selenium API
-    def temp_parse(self, response):
+    def parse(self,response):   
         body = response.body
-        data = json.loads(body)  
-        # data used in request to carsandbids
-        self.cookies = data.get("cookies")
-        self.new_api = data.get("newapi")
-        # making request to carsandbids API endpoint with cookies
-        yield scrapy.Request(url=self.new_api,callback=self.parse,cookies=self.cookies)
-
-    # parsing response from API and build url for each car page
-    def parse(self,response):    
-        body = response.body
-        self.data = json.loads(body)
+        self.data = json.loads(body).get("resp")
         count = int(self.data.get("count"))
         for i in range(count):
             self.ids[self.data["auctions"][i].get("id")] = self.data["auctions"][i].get("title")
@@ -51,7 +40,7 @@ class CarsSpider(scrapy.Spider):
     # extracting required fields from response (individual car page)
     def custom_parse(self,response):
         try:
-            page_data = json.loads(response.text)
+            page_data = json.loads(response.text)[0]
             sel = Selector(text=response.text)
             loader = ItemLoader(item=CarsandbidsItem(),response=response,selector=sel)
             i = response.request.meta.get("i")
