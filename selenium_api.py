@@ -29,7 +29,7 @@ options = {
 def interceptor(request):
     api = "/v2/autos/auctions?limit"
     if api in request.url:
-        request.url = request.url.replace("limit=12",'limit=100')
+        request.url = request.url.replace("limit=12",'limit=110')
         
 # handling new listing
 def new_cars(url):
